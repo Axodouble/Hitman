@@ -25,7 +25,17 @@ const games = new Map<string, Game>();
 
 // Utility functions
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
+  const words = [
+    'Wolf', 'Eagle', 'Tiger', 'Lion', 'Bear', 'Fox', 'Hawk', 'Shark', 'Dragon', 'Phoenix',
+    'Thunder', 'Lightning', 'Storm', 'Fire', 'Ice', 'Star', 'Moon', 'Sun', 'Arrow', 'Blade',
+    'Swift', 'Shadow', 'Steel', 'Crystal', 'River', 'Mountain', 'Forest', 'Ocean', 'Crown', 'Castle',
+    'Ruby', 'Diamond', 'Silver', 'Gold', 'Frost', 'Flame', 'Wind', 'Stone', 'Peak', 'Valley'
+  ];
+  
+  const word = words[Math.floor(Math.random() * words.length)];
+  const number = Math.floor(Math.random() * 900) + 100; // 3-digit number (100-999)
+  
+  return `${word}${number}`;
 }
 
 function generateCode(): string {
@@ -231,13 +241,63 @@ const htmlTemplate = `
             padding: 1rem;
             margin: 1rem 0;
         }
-        
-        .share-link {
+          .share-link {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 1rem;
             margin: 1rem 0;
             word-break: break-all;
+        }
+        
+        .game-id {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            user-select: all;
+        }
+        
+        .game-id:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.02);
+        }
+        
+        .copy-hint {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+        }
+        
+        .qr-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+        
+        .qr-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem auto;
+            display: inline-block;
+            max-width: 200px;
+        }
+        
+        .qr-code {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            display: block;
         }
         
         .winner {
@@ -289,13 +349,22 @@ const htmlTemplate = `
             </div>
             <button onclick="joinGame()">Join Game</button>
             <button onclick="showScreen('mainMenu')">Back</button>
-        </div>
-        
-        <!-- Game Lobby -->
+        </div>        <!-- Game Lobby -->
         <div id="gameLobby" class="screen">
             <h2 id="lobbyGameName">Game Lobby</h2>
             <div class="share-link">
-                <strong>Share this link:</strong><br>
+                <strong>Game ID:</strong><br>
+                <div class="game-id" id="gameIdDisplay" onclick="copyGameId()"></div>
+                <div class="copy-hint">👆 Click to copy</div>
+            </div>
+            <div class="qr-section">
+                <strong>📱 Scan to Join:</strong><br>
+                <div class="qr-container">
+                    <img id="qrCode" class="qr-code" alt="QR Code" />
+                </div>
+            </div>
+            <div class="share-link">
+                <strong>Or share this link:</strong><br>
                 <span id="shareLink"></span>
             </div>
             <div class="player-list">
@@ -384,7 +453,6 @@ const htmlTemplate = `
                     updateGameState(data.state);
                     break;
                 case 'playerEliminated':
-                    alert(\`\${data.playerName} has been eliminated!\`);
                     updateGameState(data.state);
                     break;
                 case 'gameFinished':
@@ -401,8 +469,7 @@ const htmlTemplate = `
                     break;
             }
         }
-        
-        function updateGameState(state) {
+          function updateGameState(state) {
             currentGame = state;
             
             if (state.started && !state.finished) {
@@ -412,13 +479,58 @@ const htmlTemplate = `
                 showScreen('gamePlaying');
             } else if (!state.started) {
                 document.getElementById('lobbyGameName').textContent = state.gameName;
-                document.getElementById('shareLink').textContent = window.location.origin + '/?gameid=' + state.gameId;
+                document.getElementById('gameIdDisplay').textContent = state.gameId;
+                const shareUrl = window.location.origin + '/?gameid=' + state.gameId;
+                document.getElementById('shareLink').textContent = shareUrl;
+                
+                // Generate QR code
+                generateQRCode(shareUrl);
+                
                 updatePlayerList('playerList', state.players);
                 
                 const startBtn = document.getElementById('startGameBtn');
                 startBtn.style.display = state.players.length >= 2 ? 'block' : 'none';
                 showScreen('gameLobby');
             }
+        }
+        
+        function generateQRCode(url) {
+            // Use QR Server API to generate QR code
+            const qrUrl = \`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=\${encodeURIComponent(url)}\`;
+            document.getElementById('qrCode').src = qrUrl;
+        }
+        
+        function copyGameId() {
+            const gameId = document.getElementById('gameIdDisplay').textContent;
+            navigator.clipboard.writeText(gameId).then(() => {
+                // Show feedback
+                const gameIdEl = document.getElementById('gameIdDisplay');
+                const originalText = gameIdEl.textContent;
+                const originalBg = gameIdEl.style.background;
+                gameIdEl.textContent = 'Copied! ✓';
+                gameIdEl.style.background = 'rgba(0, 255, 0, 0.3)';
+                
+                setTimeout(() => {
+                    gameIdEl.textContent = originalText;
+                    gameIdEl.style.background = originalBg;
+                }, 1000);
+            }).catch(() => {
+                // Fallback for older browsers
+                const gameIdEl = document.getElementById('gameIdDisplay');
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(gameIdEl);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                try {
+                    document.execCommand('copy');
+                    selection.removeAllRanges();
+                    alert('Game ID copied to clipboard!');
+                } catch (err) {
+                    alert('Could not copy Game ID. Please select and copy manually.');
+                }
+            });
         }
         
         function updatePlayerList(elementId, players) {
