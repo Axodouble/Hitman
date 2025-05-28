@@ -334,12 +334,32 @@ const htmlTemplate = `
             </div>
             <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
         </div>
-    </div>
-
-    <script>
+    </div>    <script>
         let ws;
         let currentGame = null;
         let playerId = null;
+        
+        // Cookie utility functions
+        function setCookie(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = \`\${name}=\${value};expires=\${expires.toUTCString()};path=/\`;
+        }
+        
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+        
+        function deleteCookie(name) {
+            document.cookie = \`\${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\`;
+        }
         
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => {
@@ -431,10 +451,15 @@ const htmlTemplate = `
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameName, playerName: creatorName })
             });
-            
-            const data = await response.json();
+              const data = await response.json();
             if (data.success) {
                 playerId = data.playerId;
+                
+                // Store game data in cookies
+                setCookie('gameId', data.gameId);
+                setCookie('playerId', data.playerId);
+                setCookie('playerName', creatorName);
+                
                 connectWebSocket();
                 ws.onopen = () => {
                     ws.send(JSON.stringify({ type: 'join', gameId: data.gameId, playerId }));
@@ -459,10 +484,15 @@ const htmlTemplate = `
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameId, playerName })
             });
-            
-            const data = await response.json();
+              const data = await response.json();
             if (data.success) {
                 playerId = data.playerId;
+                
+                // Store game data in cookies
+                setCookie('gameId', gameId);
+                setCookie('playerId', data.playerId);
+                setCookie('playerName', playerName);
+                
                 connectWebSocket();
                 ws.onopen = () => {
                     ws.send(JSON.stringify({ type: 'join', gameId, playerId }));
@@ -495,21 +525,44 @@ const htmlTemplate = `
                 document.getElementById('assassinationCode').value = '';
             }
         }
-        
-        function leaveGame() {
+          function leaveGame() {
             if (ws) {
                 ws.close();
             }
+            // Clear cookies when leaving game
+            deleteCookie('gameId');
+            deleteCookie('playerId');
+            deleteCookie('playerName');
             showScreen('mainMenu');
         }
         
-        // Auto-join if URL has join parameter
+        // Function to attempt auto-rejoin from cookies
+        function attemptAutoRejoin() {
+            const savedGameId = getCookie('gameId');
+            const savedPlayerId = getCookie('playerId');
+            const savedPlayerName = getCookie('playerName');
+            
+            if (savedGameId && savedPlayerId && savedPlayerName) {
+                playerId = savedPlayerId;
+                connectWebSocket();
+                ws.onopen = () => {
+                    ws.send(JSON.stringify({ type: 'join', gameId: savedGameId, playerId: savedPlayerId }));
+                };
+                return true;
+            }
+            return false;
+        }
+        
+        // Auto-join if URL has join parameter or try to rejoin from cookies
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const joinGameId = urlParams.get('join');
             if (joinGameId) {
                 document.getElementById('gameId').value = joinGameId;
                 showScreen('joinGame');
+            } else {
+                // Try to auto-rejoin from cookies
+                attemptAutoRejoin();
             }
         };
     </script>
