@@ -1,7 +1,5 @@
 // Hitman Game Server
 import { serve } from "bun";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 // Game state types
 interface Player {
@@ -36,19 +34,19 @@ function generateCode(): string {
 
 function assignTargets(players: Player[]): void {
   if (players.length < 2) return;
-  
+
   // Create a circular assignment
   const shuffled = [...players].sort(() => Math.random() - 0.5);
   for (let i = 0; i < shuffled.length; i++) {
     const nextIndex = (i + 1) % shuffled.length;
     if (shuffled[i] && shuffled[nextIndex]) {
-      shuffled[i].target = shuffled[nextIndex].id;
+      shuffled[i]!.target = shuffled[nextIndex].id;
     }
   }
 }
 
 function broadcast(game: Game, message: any): void {
-  game.players.forEach(player => {
+  game.players.forEach((player) => {
     if (player.ws && player.ws.readyState === 1) {
       player.ws.send(JSON.stringify(message));
     }
@@ -56,11 +54,11 @@ function broadcast(game: Game, message: any): void {
 }
 
 function getGameState(game: Game, playerId?: string): any {
-  const players = Array.from(game.players.values()).map(p => ({
+  const players = Array.from(game.players.values()).map((p) => ({
     id: p.id,
     name: p.name,
     alive: p.alive,
-    isMe: p.id === playerId
+    isMe: p.id === playerId,
   }));
 
   const state: any = {
@@ -69,7 +67,7 @@ function getGameState(game: Game, playerId?: string): any {
     players,
     started: game.started,
     finished: game.finished,
-    winner: game.winner
+    winner: game.winner,
   };
 
   if (playerId && game.players.has(playerId)) {
@@ -84,7 +82,7 @@ function getGameState(game: Game, playerId?: string): any {
   return state;
 }
 
-// HTML template
+// HTML template with URL-based reconnection
 const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="en">
@@ -334,32 +332,12 @@ const htmlTemplate = `
             </div>
             <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
         </div>
-    </div>    <script>
+    </div>
+
+    <script>
         let ws;
         let currentGame = null;
         let playerId = null;
-        
-        // Cookie utility functions
-        function setCookie(name, value, days = 7) {
-            const expires = new Date();
-            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-            document.cookie = \`\${name}=\${value};expires=\${expires.toUTCString()};path=/\`;
-        }
-        
-        function getCookie(name) {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-            }
-            return null;
-        }
-        
-        function deleteCookie(name) {
-            document.cookie = \`\${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\`;
-        }
         
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => {
@@ -400,7 +378,12 @@ const htmlTemplate = `
                     showScreen('gameFinished');
                     break;
                 case 'error':
-                    alert('Error: ' + data.message);
+                    if (data.code === 'PLAYER_NOT_FOUND') {
+                        alert('Game session expired or not found. Redirecting to main menu.');
+                        window.location.href = '/';
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
                     break;
             }
         }
@@ -412,13 +395,15 @@ const htmlTemplate = `
                 document.getElementById('targetName').textContent = state.myTarget || 'None';
                 document.getElementById('myCode').textContent = state.myCode || '';
                 updatePlayerList('gamePlayerList', state.players);
+                showScreen('gamePlaying');
             } else if (!state.started) {
                 document.getElementById('lobbyGameName').textContent = state.gameName;
-                document.getElementById('shareLink').textContent = window.location.origin + '?join=' + state.gameId;
+                document.getElementById('shareLink').textContent = window.location.origin + '/?gameid=' + state.gameId;
                 updatePlayerList('playerList', state.players);
                 
                 const startBtn = document.getElementById('startGameBtn');
                 startBtn.style.display = state.players.length >= 2 ? 'block' : 'none';
+                showScreen('gameLobby');
             }
         }
         
@@ -451,20 +436,11 @@ const htmlTemplate = `
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameName, playerName: creatorName })
             });
-              const data = await response.json();
+            
+            const data = await response.json();
             if (data.success) {
-                playerId = data.playerId;
-                
-                // Store game data in cookies
-                setCookie('gameId', data.gameId);
-                setCookie('playerId', data.playerId);
-                setCookie('playerName', creatorName);
-                
-                connectWebSocket();
-                ws.onopen = () => {
-                    ws.send(JSON.stringify({ type: 'join', gameId: data.gameId, playerId }));
-                };
-                showScreen('gameLobby');
+                // Redirect to game URL with player info
+                window.location.href = \`/?gameid=\${data.gameId}&playerid=\${data.playerId}\`;
             } else {
                 alert('Error creating game: ' + data.error);
             }
@@ -484,20 +460,11 @@ const htmlTemplate = `
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameId, playerName })
             });
-              const data = await response.json();
+            
+            const data = await response.json();
             if (data.success) {
-                playerId = data.playerId;
-                
-                // Store game data in cookies
-                setCookie('gameId', gameId);
-                setCookie('playerId', data.playerId);
-                setCookie('playerName', playerName);
-                
-                connectWebSocket();
-                ws.onopen = () => {
-                    ws.send(JSON.stringify({ type: 'join', gameId, playerId }));
-                };
-                showScreen('gameLobby');
+                // Redirect to game URL with player info
+                window.location.href = \`/?gameid=\${gameId}&playerid=\${data.playerId}\`;
             } else {
                 alert('Error joining game: ' + data.error);
             }
@@ -525,44 +492,38 @@ const htmlTemplate = `
                 document.getElementById('assassinationCode').value = '';
             }
         }
-          function leaveGame() {
+        
+        function leaveGame() {
             if (ws) {
                 ws.close();
             }
-            // Clear cookies when leaving game
-            deleteCookie('gameId');
-            deleteCookie('playerId');
-            deleteCookie('playerName');
-            showScreen('mainMenu');
+            window.location.href = '/';
         }
         
-        // Function to attempt auto-rejoin from cookies
-        function attemptAutoRejoin() {
-            const savedGameId = getCookie('gameId');
-            const savedPlayerId = getCookie('playerId');
-            const savedPlayerName = getCookie('playerName');
-            
-            if (savedGameId && savedPlayerId && savedPlayerName) {
-                playerId = savedPlayerId;
-                connectWebSocket();
-                ws.onopen = () => {
-                    ws.send(JSON.stringify({ type: 'join', gameId: savedGameId, playerId: savedPlayerId }));
-                };
-                return true;
-            }
-            return false;
-        }
-        
-        // Auto-join if URL has join parameter or try to rejoin from cookies
+        // Auto-join based on URL parameters
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const joinGameId = urlParams.get('join');
-            if (joinGameId) {
-                document.getElementById('gameId').value = joinGameId;
+            const gameId = urlParams.get('gameid');
+            const playerIdParam = urlParams.get('playerid');
+            
+            if (gameId && playerIdParam) {
+                // Auto-rejoin existing game
+                playerId = playerIdParam;
+                connectWebSocket();
+                ws.onopen = () => {
+                    ws.send(JSON.stringify({ 
+                        type: 'join', 
+                        gameId: gameId, 
+                        playerId: playerId 
+                    }));
+                };
+            } else if (gameId) {
+                // Join game by ID only (from share link)
+                document.getElementById('gameId').value = gameId;
                 showScreen('joinGame');
             } else {
-                // Try to auto-rejoin from cookies
-                attemptAutoRejoin();
+                // Show main menu
+                showScreen('mainMenu');
             }
         };
     </script>
@@ -572,10 +533,10 @@ const htmlTemplate = `
 
 const server = serve({
   port: 3000,
-  
+
   async fetch(req, server) {
     const url = new URL(req.url);
-    
+
     // WebSocket upgrade
     if (url.pathname === "/ws") {
       if (server.upgrade(req)) {
@@ -583,133 +544,183 @@ const server = serve({
       }
       return new Response("Upgrade failed", { status: 400 });
     }
-      // API endpoints
+
+    // API endpoints
     if (url.pathname === "/api/create") {
       if (req.method === "POST") {
-        const body = await req.json() as { gameName: string; playerName: string };
+        const body = (await req.json()) as {
+          gameName: string;
+          playerName: string;
+        };
         const { gameName, playerName } = body;
-        
+
         const gameId = generateId();
         const playerId = generateId();
         const playerCode = generateCode();
-        
+
         const game: Game = {
           id: gameId,
           name: gameName,
           players: new Map(),
           started: false,
-          finished: false
+          finished: false,
         };
-        
+
         const player: Player = {
           id: playerId,
           name: playerName,
           code: playerCode,
-          alive: true
+          alive: true,
         };
-        
+
         game.players.set(playerId, player);
         games.set(gameId, game);
-        
+
         return Response.json({
           success: true,
           gameId,
-          playerId
+          playerId,
         });
       }
     }
-      if (url.pathname === "/api/join") {
+
+    if (url.pathname === "/api/join") {
       if (req.method === "POST") {
-        const { gameId, playerName } = await req.json() as { gameId: string; playerName: string };
-        
+        const { gameId, playerName } = (await req.json()) as {
+          gameId: string;
+          playerName: string;
+        };
+
         const game = games.get(gameId);
         if (!game) {
           return Response.json({ success: false, error: "Game not found" });
         }
-        
+
         if (game.started) {
-          return Response.json({ success: false, error: "Game already started" });
+          return Response.json({
+            success: false,
+            error: "Game already started",
+          });
         }
-        
+
         const playerId = generateId();
         const playerCode = generateCode();
-        
+
         const player: Player = {
           id: playerId,
           name: playerName,
           code: playerCode,
-          alive: true
+          alive: true,
         };
-        
+
         game.players.set(playerId, player);
-        
+
         // Notify other players
         broadcast(game, {
-          type: 'gameState',
-          state: getGameState(game)
+          type: "gameState",
+          state: getGameState(game),
         });
-        
+
         return Response.json({
           success: true,
           gameId,
-          playerId
+          playerId,
         });
       }
     }
-    
+
     // Serve HTML
     return new Response(htmlTemplate, {
-      headers: { "Content-Type": "text/html" }
+      headers: { "Content-Type": "text/html" },
     });
   },
-  
+
   websocket: {
     message(ws, message) {
       try {
         const data = JSON.parse(message as string);
-        
+
         switch (data.type) {
-          case 'join':
+          case "join":
             const game = games.get(data.gameId);
             if (game && game.players.has(data.playerId)) {
               const player = game.players.get(data.playerId)!;
               player.ws = ws;
-              
-              ws.send(JSON.stringify({
-                type: 'gameState',
-                state: getGameState(game, data.playerId)
-              }));
+
+              // Send appropriate screen based on game state
+              if (game.finished) {
+                ws.send(
+                  JSON.stringify({
+                    type: "gameFinished",
+                    winner: game.winner,
+                  })
+                );
+              } else if (game.started) {
+                ws.send(
+                  JSON.stringify({
+                    type: "gameStarted",
+                    state: getGameState(game, data.playerId),
+                  })
+                );
+              } else {
+                ws.send(
+                  JSON.stringify({
+                    type: "gameState",
+                    state: getGameState(game, data.playerId),
+                  })
+                );
+              }
+            } else {
+              // Player ID not found, send error to trigger fallback
+              ws.send(
+                JSON.stringify({
+                  type: "error",
+                  message: "Player not found in game",
+                  code: "PLAYER_NOT_FOUND",
+                })
+              );
             }
             break;
-            
-          case 'startGame':
+
+          case "startGame":
             const startGame = games.get(data.gameId);
-            if (startGame && !startGame.started && startGame.players.size >= 2) {
+            if (
+              startGame &&
+              !startGame.started &&
+              startGame.players.size >= 2
+            ) {
               startGame.started = true;
-              
+
               // Assign targets
               const players = Array.from(startGame.players.values());
               assignTargets(players);
-              
+
               broadcast(startGame, {
-                type: 'gameStarted',
-                state: getGameState(startGame)
+                type: "gameStarted",
+                state: getGameState(startGame),
               });
-              
+
               // Send individual states with target info
               startGame.players.forEach((player, playerId) => {
                 if (player.ws) {
-                  player.ws.send(JSON.stringify({
-                    type: 'gameState',
-                    state: getGameState(startGame, playerId)
-                  }));
+                  player.ws.send(
+                    JSON.stringify({
+                      type: "gameState",
+                      state: getGameState(startGame, playerId),
+                    })
+                  );
                 }
               });
             }
             break;
-              case 'assassinate':
+
+          case "assassinate":
             const assassinateGame = games.get(data.gameId);
-            if (assassinateGame && assassinateGame.started && !assassinateGame.finished) {
+            if (
+              assassinateGame &&
+              assassinateGame.started &&
+              !assassinateGame.finished
+            ) {
               // Find the assassin player
               let assassinPlayer: Player | null = null;
               for (const player of assassinateGame.players.values()) {
@@ -718,67 +729,83 @@ const server = serve({
                   break;
                 }
               }
-              
+
               if (!assassinPlayer) {
-                ws.send(JSON.stringify({
-                  type: 'error',
-                  message: 'You are not alive or not in this game'
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: "error",
+                    message: "You are not alive or not in this game",
+                  })
+                );
                 break;
               }
-              
+
               // Find the target player (must be the assassin's assigned target)
-              const targetPlayer = assassinateGame.players.get(assassinPlayer.target!);
-              
-              if (targetPlayer && targetPlayer.alive && targetPlayer.code === data.code) {
+              const targetPlayer = assassinateGame.players.get(
+                assassinPlayer.target!
+              );
+
+              if (
+                targetPlayer &&
+                targetPlayer.alive &&
+                targetPlayer.code === data.code
+              ) {
                 targetPlayer.alive = false;
-                
+
                 // Check if game is finished
-                const alivePlayers = Array.from(assassinateGame.players.values()).filter(p => p.alive);
-                  if (alivePlayers.length === 1) {
+                const alivePlayers = Array.from(
+                  assassinateGame.players.values()
+                ).filter((p) => p.alive);
+
+                if (alivePlayers.length === 1) {
                   assassinateGame.finished = true;
                   assassinateGame.winner = alivePlayers[0]?.name;
-                  
+
                   broadcast(assassinateGame, {
-                    type: 'gameFinished',
-                    winner: assassinateGame.winner
+                    type: "gameFinished",
+                    winner: assassinateGame.winner,
                   });
                 } else {
                   // Reassign targets if needed
                   if (alivePlayers.length > 1) {
                     assignTargets(alivePlayers);
                   }
-                  
+
                   broadcast(assassinateGame, {
-                    type: 'playerEliminated',
+                    type: "playerEliminated",
                     playerName: targetPlayer.name,
-                    state: getGameState(assassinateGame)
+                    state: getGameState(assassinateGame),
                   });
-                  
+
                   // Send updated individual states
                   assassinateGame.players.forEach((player, playerId) => {
                     if (player.ws && player.alive) {
-                      player.ws.send(JSON.stringify({
-                        type: 'gameState',
-                        state: getGameState(assassinateGame, playerId)
-                      }));
+                      player.ws.send(
+                        JSON.stringify({
+                          type: "gameState",
+                          state: getGameState(assassinateGame, playerId),
+                        })
+                      );
                     }
                   });
-                }              } else {
+                }
+              } else {
                 // Invalid code or not your target
-                ws.send(JSON.stringify({
-                  type: 'error',
-                  message: 'Invalid code or this is not your assigned target'
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: "error",
+                    message: "Invalid code or this is not your assigned target",
+                  })
+                );
               }
             }
             break;
         }
       } catch (error) {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       }
     },
-    
+
     close(ws) {
       // Clean up disconnected players if needed
       for (const game of games.values()) {
@@ -789,9 +816,11 @@ const server = serve({
           }
         }
       }
-    }
-  }
+    },
+  },
 });
 
 console.log(`🎯 Hitman Game Server running on http://localhost:${server.port}`);
-console.log("Players can create games, join with invitation links, and start assassinating!");
+console.log(
+  "Players can create games, join with invitation links, and start assassinating!"
+);
