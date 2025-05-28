@@ -114,7 +114,7 @@ const htmlTemplate = `
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #6378e2;
+            color: white;
         }
         
         .container {
