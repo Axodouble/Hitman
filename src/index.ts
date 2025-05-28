@@ -345,10 +345,24 @@ const htmlTemplate = `
             });
             document.getElementById(screenId).classList.add('active');
         }
-        
-        function connectWebSocket() {
+          function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameId = urlParams.get('gameid');
+            
             ws = new WebSocket(\`\${protocol}//\${window.location.host}/ws\`);
+            
+            ws.onopen = () => {
+                console.log('Connected to WebSocket');
+                // Auto-join if we have both gameId and playerId
+                if (gameId && playerId) {
+                    ws.send(JSON.stringify({ 
+                        type: 'join', 
+                        gameId: gameId, 
+                        playerId: playerId 
+                    }));
+                }
+            };
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -499,8 +513,7 @@ const htmlTemplate = `
             }
             window.location.href = '/';
         }
-        
-        // Auto-join based on URL parameters
+          // Auto-join based on URL parameters
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const gameId = urlParams.get('gameid');
@@ -510,13 +523,6 @@ const htmlTemplate = `
                 // Auto-rejoin existing game
                 playerId = playerIdParam;
                 connectWebSocket();
-                ws.onopen = () => {
-                    ws.send(JSON.stringify({ 
-                        type: 'join', 
-                        gameId: gameId, 
-                        playerId: playerId 
-                    }));
-                };
             } else if (gameId) {
                 // Join game by ID only (from share link)
                 document.getElementById('gameId').value = gameId;
@@ -611,14 +617,16 @@ const server = serve({
           name: playerName,
           code: playerCode,
           alive: true,
-        };
+        };        game.players.set(playerId, player);
 
-        game.players.set(playerId, player);
-
-        // Notify other players
-        broadcast(game, {
-          type: "gameState",
-          state: getGameState(game),
+        // Notify all players individually with personalized data
+        game.players.forEach((p, pId) => {
+          if (p.ws) {
+            p.ws.send(JSON.stringify({
+              type: "gameState",
+              state: getGameState(game, pId),
+            }));
+          }
         });
 
         return Response.json({
@@ -689,23 +697,16 @@ const server = serve({
               !startGame.started &&
               startGame.players.size >= 2
             ) {
-              startGame.started = true;
-
-              // Assign targets
+              startGame.started = true;              // Assign targets
               const players = Array.from(startGame.players.values());
               assignTargets(players);
 
-              broadcast(startGame, {
-                type: "gameStarted",
-                state: getGameState(startGame),
-              });
-
-              // Send individual states with target info
+              // Send gameStarted to all players with personalized data
               startGame.players.forEach((player, playerId) => {
                 if (player.ws) {
                   player.ws.send(
                     JSON.stringify({
-                      type: "gameState",
+                      type: "gameStarted",
                       state: getGameState(startGame, playerId),
                     })
                   );
@@ -764,25 +765,27 @@ const server = serve({
                   broadcast(assassinateGame, {
                     type: "gameFinished",
                     winner: assassinateGame.winner,
-                  });
-                } else {
+                  });                } else {
                   // Reassign targets if needed
                   if (alivePlayers.length > 1) {
                     assignTargets(alivePlayers);
-                  }
-
-                  broadcast(assassinateGame, {
-                    type: "playerEliminated",
-                    playerName: targetPlayer.name,
-                    state: getGameState(assassinateGame),
+                  }                  // First notify everyone about the elimination with personalized data
+                  assassinateGame.players.forEach((p, pId) => {
+                    if (p.ws) {
+                      p.ws.send(JSON.stringify({
+                        type: "playerEliminated",
+                        playerName: targetPlayer.name,
+                        state: getGameState(assassinateGame, pId),
+                      }));
+                    }
                   });
 
-                  // Send updated individual states
+                  // Then send updated individual states with new target assignments to alive players
                   assassinateGame.players.forEach((player, playerId) => {
                     if (player.ws && player.alive) {
                       player.ws.send(
                         JSON.stringify({
-                          type: "gameState",
+                          type: "gameStarted", // Use gameStarted to trigger target update
                           state: getGameState(assassinateGame, playerId),
                         })
                       );
