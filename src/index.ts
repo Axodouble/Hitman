@@ -114,7 +114,7 @@ const htmlTemplate = `
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: #6378e2;
         }
         
         .container {
@@ -248,8 +248,7 @@ const htmlTemplate = `
             margin: 1rem 0;
             word-break: break-all;
         }
-        
-        .game-id {
+          .game-id {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 8px;
@@ -265,6 +264,27 @@ const htmlTemplate = `
         }
         
         .game-id:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.02);
+        }
+        
+        .clickable-link {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            word-break: break-all;
+            user-select: all;
+        }
+        
+        .clickable-link:hover {
             background: rgba(255, 255, 255, 0.3);
             border-color: rgba(255, 255, 255, 0.5);
             transform: scale(1.02);
@@ -352,11 +372,6 @@ const htmlTemplate = `
         </div>        <!-- Game Lobby -->
         <div id="gameLobby" class="screen">
             <h2 id="lobbyGameName">Game Lobby</h2>
-            <div class="share-link">
-                <strong>Game ID:</strong><br>
-                <div class="game-id" id="gameIdDisplay" onclick="copyGameId()"></div>
-                <div class="copy-hint">👆 Click to copy</div>
-            </div>
             <div class="qr-section">
                 <strong>📱 Scan to Join:</strong><br>
                 <div class="qr-container">
@@ -364,8 +379,9 @@ const htmlTemplate = `
                 </div>
             </div>
             <div class="share-link">
-                <strong>Or share this link:</strong><br>
-                <span id="shareLink"></span>
+                <strong>Share this link:</strong><br>
+                <span id="shareLink" class="clickable-link" onclick="copyShareLink()"></span>
+                <div class="copy-hint">👆 Click to copy</div>
             </div>
             <div class="player-list">
                 <h3>Players:</h3>
@@ -468,8 +484,7 @@ const htmlTemplate = `
                     }
                     break;
             }
-        }
-          function updateGameState(state) {
+        }          function updateGameState(state) {
             currentGame = state;
             
             if (state.started && !state.finished) {
@@ -479,7 +494,6 @@ const htmlTemplate = `
                 showScreen('gamePlaying');
             } else if (!state.started) {
                 document.getElementById('lobbyGameName').textContent = state.gameName;
-                document.getElementById('gameIdDisplay').textContent = state.gameId;
                 const shareUrl = window.location.origin + '/?gameid=' + state.gameId;
                 document.getElementById('shareLink').textContent = shareUrl;
                 
@@ -499,36 +513,35 @@ const htmlTemplate = `
             const qrUrl = \`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=\${encodeURIComponent(url)}\`;
             document.getElementById('qrCode').src = qrUrl;
         }
-        
-        function copyGameId() {
-            const gameId = document.getElementById('gameIdDisplay').textContent;
-            navigator.clipboard.writeText(gameId).then(() => {
+          function copyShareLink() {
+            const shareLink = document.getElementById('shareLink').textContent;
+            navigator.clipboard.writeText(shareLink).then(() => {
                 // Show feedback
-                const gameIdEl = document.getElementById('gameIdDisplay');
-                const originalText = gameIdEl.textContent;
-                const originalBg = gameIdEl.style.background;
-                gameIdEl.textContent = 'Copied! ✓';
-                gameIdEl.style.background = 'rgba(0, 255, 0, 0.3)';
+                const shareLinkEl = document.getElementById('shareLink');
+                const originalText = shareLinkEl.textContent;
+                const originalBg = shareLinkEl.style.background;
+                shareLinkEl.textContent = 'Copied! ✓';
+                shareLinkEl.style.background = 'rgba(0, 255, 0, 0.3)';
                 
                 setTimeout(() => {
-                    gameIdEl.textContent = originalText;
-                    gameIdEl.style.background = originalBg;
+                    shareLinkEl.textContent = originalText;
+                    shareLinkEl.style.background = originalBg;
                 }, 1000);
             }).catch(() => {
                 // Fallback for older browsers
-                const gameIdEl = document.getElementById('gameIdDisplay');
+                const shareLinkEl = document.getElementById('shareLink');
                 const selection = window.getSelection();
                 const range = document.createRange();
-                range.selectNodeContents(gameIdEl);
+                range.selectNodeContents(shareLinkEl);
                 selection.removeAllRanges();
                 selection.addRange(range);
                 
                 try {
                     document.execCommand('copy');
                     selection.removeAllRanges();
-                    alert('Game ID copied to clipboard!');
+                    alert('Share link copied to clipboard!');
                 } catch (err) {
-                    alert('Could not copy Game ID. Please select and copy manually.');
+                    alert('Could not copy link. Please select and copy manually.');
                 }
             });
         }
