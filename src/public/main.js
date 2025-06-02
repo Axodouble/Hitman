@@ -175,8 +175,24 @@ async function fetchGameState() {
 
   try {
     const response = await fetch(`/api/game?gameId=${currentGame.id}&playerId=${currentGame.playerId}`);
-    const result = await response.json();    if (result.success) {
-      updateGameDisplay(result.game);
+    const result = await response.json();    
+    
+    if (result.success) {
+      // Skip UI update if user is currently typing in the assassination code field
+      const assassinationField = document.getElementById('assassinationCode');
+      const isFieldFocused = assassinationField === document.activeElement;
+      
+      if (!isFieldFocused) {
+        updateGameDisplay(result.game);
+      } else {
+        // Still update the game state behind the scenes, but don't refresh UI
+        // This ensures we still track game changes while user is typing
+        
+        // Check for game state changes that should override focus (like game ending)
+        if (result.game.finished) {
+          updateGameDisplay(result.game);
+        }
+      }
       
       // Check if player was eliminated
       if (result.game.started && !result.game.finished) {
@@ -280,14 +296,18 @@ function updateGamePlayingScreen(gameData) {
         </div>
       `).join('')}
     `;
-  }
-  // Update code input section
+  }  // Update code input section
   const codeInput = document.querySelector('#gamePlaying .code-input');
   if (codeInput) {
     if (isPlayerEliminated) {
       // Hide the code input section for eliminated players
       (/** @type {HTMLElement} */ (codeInput)).style.display = 'none';
     } else if (gameData.playerCode) {
+      // Save current input value before updating the UI
+      const currentInputValue = document.getElementById('assassinationCode') 
+        ? (/** @type {HTMLInputElement} */ (document.getElementById('assassinationCode'))).value
+        : '';
+        
       // Show code input for active players
       codeInput.innerHTML = `
         <h3>🔑 Your Code</h3>
@@ -297,7 +317,7 @@ function updateGamePlayingScreen(gameData) {
         <h3>🗡️ Eliminate Target</h3>
         <p>Enter your target's code to eliminate them:</p>
         <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <input type="text" id="assassinationCode" placeholder="Enter target's code" style="flex: 1;">
+          <input type="text" id="assassinationCode" placeholder="Enter target's code" style="flex: 1;" value="${currentInputValue}">
           <button onclick="eliminateTarget()" style="width: auto;">Eliminate</button>
         </div>
       `;
@@ -332,8 +352,8 @@ let gameStateInterval = null;
 function startGameStatePolling() {
   if (gameStateInterval) return; // Already polling
   
-  // Poll every 2 seconds
-  gameStateInterval = setInterval(fetchGameState, 2000);
+  // Poll every 5 seconds instead of 2 seconds to reduce UI disruption
+  gameStateInterval = setInterval(fetchGameState, 5000);
   
   // Also fetch immediately
   fetchGameState();
