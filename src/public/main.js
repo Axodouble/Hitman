@@ -13,10 +13,12 @@ function showScreen(screenId) {
   }
 }
 
-
 /**
  * @param {string | number | boolean} url
  */
 function generateQRCode(url) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+    url
+  )}`;
 }
+
