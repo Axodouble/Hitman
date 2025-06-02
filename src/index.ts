@@ -197,6 +197,202 @@ const server = serve({
         });
       }
     }
+
+    if (url.pathname === "/api/game") {
+      if (req.method === "GET") {
+        const gameId = url.searchParams.get("gameId");
+        const playerId = url.searchParams.get("playerId");
+
+        if (!gameId || !playerId) {
+          return Response.json({
+            success: false,
+            error: "Game ID and Player ID required",
+          });
+        }
+
+        const game = games.get(gameId);
+        if (!game) {
+          return Response.json({ success: false, error: "Game not found" });
+        }
+
+        const player = game.players.get(playerId);
+        if (!player) {
+          return Response.json({ success: false, error: "Player not found" });
+        }        // Convert players map to array for frontend
+        const players = Array.from(game.players.values()).map((p) => ({
+          id: p.id,
+          name: p.name,
+          alive: p.alive,
+          isHost: p.id === game.host.id,
+        }));        // Get target information if game has started
+        let targetInfo = null;
+        if (game.started && player.target) {
+          const target = game.players.get(player.target);
+          if (target) {
+            targetInfo = {
+              id: target.id,
+              name: target.name
+              // Don't send the target's code to the client
+            };
+          }
+        }
+
+        return Response.json({
+          success: true,
+          game: {
+            id: game.id,
+            name: game.name,
+            started: game.started,
+            finished: game.finished,
+            winner: game.winner,
+            players: players,
+            isHost: player.id === game.host.id,
+            target: targetInfo,
+            playerCode: player.code
+          },
+        });
+      }
+    }
+
+    if (url.pathname === "/api/start") {
+      if (req.method === "POST") {
+        const { gameId, playerId } = (await req.json()) as {
+          gameId: string;
+          playerId: string;
+        };
+
+        const game = games.get(gameId);
+        if (!game) {
+          return Response.json({ success: false, error: "Game not found" });
+        }
+
+        const player = game.players.get(playerId);
+        if (!player) {
+          return Response.json({ success: false, error: "Player not found" });
+        }
+
+        // Only host can start the game
+        if (player.id !== game.host.id) {
+          return Response.json({
+            success: false,
+            error: "Only the host can start the game",
+          });
+        }
+
+        if (game.started) {
+          return Response.json({
+            success: false,
+            error: "Game already started",
+          });
+        }
+
+        if (game.players.size < 2) {
+          return Response.json({
+            success: false,
+            error: "Need at least 2 players to start",
+          });
+        }
+
+        // Assign targets to all players
+        const playerArray = Array.from(game.players.values());
+        assignTargets(playerArray);
+
+        // Mark game as started
+        game.started = true;
+
+        return Response.json({
+          success: true,
+          message: "Game started successfully",
+        });
+      }
+    }
+
+    if (url.pathname === "/api/eliminate") {
+      if (req.method === "POST") {
+        const { gameId, playerId, targetCode } = (await req.json()) as {
+          gameId: string;
+          playerId: string;
+          targetCode: string;
+        };
+
+        const game = games.get(gameId);
+        if (!game) {
+          return Response.json({ success: false, error: "Game not found" });
+        }
+
+        if (!game.started) {
+          return Response.json({
+            success: false,
+            error: "Game has not started yet",
+          });
+        }
+
+        if (game.finished) {
+          return Response.json({
+            success: false,
+            error: "Game has already finished",
+          });
+        }
+
+        const player = game.players.get(playerId);
+        if (!player) {
+          return Response.json({ success: false, error: "Player not found" });
+        }
+
+        if (!player.alive) {
+          return Response.json({ success: false, error: "You are already eliminated" });
+        }
+
+        if (!player.target) {
+          return Response.json({ success: false, error: "You don't have a target" });
+        }
+
+        const target = game.players.get(player.target);
+        if (!target) {
+          return Response.json({ success: false, error: "Target not found" });
+        }
+
+        if (!target.alive) {
+          return Response.json({
+            success: false,
+            error: "Target is already eliminated",
+          });
+        }
+
+        // Check if the code matches the target's code
+        if (targetCode.toUpperCase() !== target.code) {
+          return Response.json({
+            success: false,
+            error: "Incorrect code. Elimination failed.",
+          });
+        }
+
+        // Elimination successful, update game state
+        target.alive = false;
+
+        // Assign the target's target to the player
+        if (target.target) {
+          player.target = target.target;
+        } else {
+          player.target = undefined;
+        }        // Check if the game is over (only one player alive)
+        const alivePlayers = Array.from(game.players.values()).filter(p => p.alive);
+        if (alivePlayers.length === 1) {
+          game.finished = true;
+          game.winner = alivePlayers[0]?.id;
+        }        return Response.json({
+          success: true,
+          message: "Target eliminated successfully",
+          newTarget: player.target ? {
+            id: game.players.get(player.target)?.id,
+            name: game.players.get(player.target)?.name
+          } : null,
+          gameOver: game.finished,
+          winner: game.winner,
+        });
+      }
+    }
+
     try {
       // Serve compiled files from dist/public, but fallback to src/public for HTML
       let path;

@@ -263,8 +263,7 @@
             <div class="form-group">
                 <label for="creatorName">Your Name:</label>
                 <input type="text" id="creatorName" placeholder="Enter your name">
-            </div>
-            <button>Create Game</button>
+            </div>            <button onclick="createGame()">Create Game</button>
             <button onclick="showScreen('mainMenu')">Back</button>
         </div>
 
@@ -278,8 +277,7 @@
             <div class="form-group">
                 <label for="playerName">Your Name:</label>
                 <input type="text" id="playerName" placeholder="Enter your name">
-            </div>
-            <button>Join Game</button>
+            </div>            <button onclick="joinGame()">Join Game</button>
             <button onclick="showScreen('mainMenu')">Back</button>
         </div> <!-- Game Lobby -->
         <div id="gameLobby" class="screen">
@@ -298,22 +296,18 @@
             <div class="player-list">
                 <h3>Players:</h3>
                 <div id="playerList"></div>
-            </div>
-            <button id="startGameBtn" style="display: none;">Start Game</button>
-            <button>Leave Game</button>
+            </div>            <button id="startGameBtn" style="display: none;" onclick="startGame()">Start Game</button>
+            <button onclick="leaveGame()">Leave Game</button>
         </div>
 
         <!-- Game Playing -->
         <div id="gamePlaying" class="screen">
-            <h2>Game in Progress</h2>
-            <div id="targetInfo" class="target-info">
-                <h3>Your Target: <span id="targetName"></span></h3>
-                <p>Your assassination code: <strong id="myCode"></strong></p>
-            </div>
-            <div class="code-input">
+            <h2>Game in Progress</h2>            <div id="targetInfo" class="target-info">
+                <!-- Target info will be populated by JS -->
+            </div><div class="code-input">
                 <label for="assassinationCode">Enter code to assassinate:</label>
                 <input type="text" id="assassinationCode" placeholder="Enter target's code">
-                <button>Assassinate</button>
+                <button onclick="eliminateTarget()">Assassinate</button>
             </div>
             <div class="player-list">
                 <h3>Players:</h3>
