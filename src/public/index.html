@@ -238,11 +238,41 @@
             text-align: center;
             font-size: 1.5rem;
         }
+
+        .death-notification {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid rgba(255, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 1rem 0;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .killer-info {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .spectator-badge {
+            background: rgba(150, 150, 150, 0.3);
+            border-radius: 8px;
+            padding: 0.3rem 0.8rem;
+            margin-left: 0.5rem;
+            font-size: 0.7rem;
+            vertical-align: middle;
+        }
     </style>
 </head>
 
 <body>
     <script src="main.js"></script>
+    <script src="death-screen.js"></script>
+    <script src="spectator.js"></script>
 
     <div class="container">
         <h1>🎯 Hitman Game</h1>
@@ -321,6 +351,20 @@
                 <h2>🏆 Game Over!</h2>
                 <p id="winnerText"></p>
             </div>
+            <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
+        </div>
+
+        <!-- Death Screen -->
+        <div id="deathScreen" class="screen">
+            <div class="death-notification">
+                <h2>💀 You've Been Eliminated!</h2>
+                <p>Unfortunately, someone has discovered your secret code and eliminated you from the game.</p>
+                <p>You can no longer participate in this round, but you can still watch how the game unfolds.</p>
+                <div id="killerInfo" class="killer-info">
+                    <!-- Killer info will be populated by JS -->
+                </div>
+            </div>
+            <button onclick="returnToGameAsSpectator()">Return to Game as Spectator</button>
             <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
         </div>
     </div>

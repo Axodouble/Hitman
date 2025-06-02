@@ -175,10 +175,14 @@ async function fetchGameState() {
 
   try {
     const response = await fetch(`/api/game?gameId=${currentGame.id}&playerId=${currentGame.playerId}`);
-    const result = await response.json();
-
-    if (result.success) {
+    const result = await response.json();    if (result.success) {
       updateGameDisplay(result.game);
+      
+      // Check if player was eliminated
+      if (result.game.started && !result.game.finished) {
+        checkPlayerElimination(result.game);
+      }
+      
       return result;
     } else {
       console.error('Failed to fetch game state:', result.error);
@@ -194,13 +198,16 @@ async function fetchGameState() {
  * Update the game display with fresh data from server
  * @param {any} gameData 
  */
-function updateGameDisplay(gameData) {
+function updateGameDisplay(gameData) {  // Check if player is eliminated
+  const currentPlayer = gameData.players.find(/** @param {any} p */ (p) => p.id === currentGame.playerId);
+  const isPlayerEliminated = currentPlayer && !currentPlayer.alive;
+
   // Update player list
   const playerList = document.querySelector('#gameLobby .player-list');
   if (playerList && gameData.players) {
     playerList.innerHTML = gameData.players.map(/** @param {any} player */ (player) => `
       <div class="player ${player.id === currentGame.playerId ? 'me' : ''} ${!player.alive ? 'dead' : ''}">
-        <span>${player.name} ${player.id === currentGame.playerId ? '(You)' : ''} ${player.isHost ? '👑' : ''}</span>
+        <span>${player.name} ${player.id === currentGame.playerId ? '(You)' : ''} ${player.isHost ? '👑' : ''} ${!player.alive && player.id === currentGame.playerId ? '<span class="spectator-badge">SPECTATOR</span>' : ''}</span>
         <span>${player.alive ? 'Ready' : 'Dead'}</span>
       </div>
     `).join('');
@@ -238,14 +245,27 @@ function updateGameDisplay(gameData) {
  * @param {any} gameData 
  */
 function updateGamePlayingScreen(gameData) {
+  // Check if player is eliminated
+  const currentPlayer = gameData.players.find(/** @param {any} p */ (p) => p.id === currentGame.playerId);
+  const isPlayerEliminated = currentPlayer && !currentPlayer.alive;
+
   // Update target information
   const targetInfo = document.querySelector('#gamePlaying #targetInfo');
-  if (targetInfo && gameData.target) {
-    targetInfo.innerHTML = `
-      <h3>🎯 Your Target</h3>
-      <p><strong>Name:</strong> ${gameData.target.name}</p>
-      <p style="font-size: 0.9em; opacity: 0.8;">Find your target and get them to reveal their code!</p>
-    `;
+  if (targetInfo) {
+    if (isPlayerEliminated) {
+      // Player is eliminated, show spectator mode
+      targetInfo.innerHTML = `
+        <h3>👁️ Spectator Mode</h3>
+        <p>You've been eliminated, but you can still watch the game unfold.</p>
+      `;
+    } else if (gameData.target) {
+      // Player is alive, show target info
+      targetInfo.innerHTML = `
+        <h3>🎯 Your Target</h3>
+        <p><strong>Name:</strong> ${gameData.target.name}</p>
+        <p style="font-size: 0.9em; opacity: 0.8;">Find your target and get them to reveal their code!</p>
+      `;
+    }
   }
 
   // Update player list in game screen
@@ -261,22 +281,27 @@ function updateGamePlayingScreen(gameData) {
       `).join('')}
     `;
   }
-
   // Update code input section
   const codeInput = document.querySelector('#gamePlaying .code-input');
-  if (codeInput && gameData.playerCode) {
-    codeInput.innerHTML = `
-      <h3>🔑 Your Code</h3>
-      <p>Your code is: <span style="font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.2em; background: rgba(255,255,255,0.2); padding: 0.2em 0.5em; border-radius: 4px;">${gameData.playerCode}</span></p>
-      <p style="font-size: 0.9em; opacity: 0.8;">Don't let anyone trick you into saying this!</p>
-      <br>
-      <h3>🗡️ Eliminate Target</h3>
-      <p>Enter your target's code to eliminate them:</p>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <input type="text" id="assassinationCode" placeholder="Enter target's code" style="flex: 1;">
-        <button onclick="eliminateTarget()" style="width: auto;">Eliminate</button>
-      </div>
-    `;
+  if (codeInput) {
+    if (isPlayerEliminated) {
+      // Hide the code input section for eliminated players
+      (/** @type {HTMLElement} */ (codeInput)).style.display = 'none';
+    } else if (gameData.playerCode) {
+      // Show code input for active players
+      codeInput.innerHTML = `
+        <h3>🔑 Your Code</h3>
+        <p>Your code is: <span style="font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.2em; background: rgba(255,255,255,0.2); padding: 0.2em 0.5em; border-radius: 4px;">${gameData.playerCode}</span></p>
+        <p style="font-size: 0.9em; opacity: 0.8;">Don't let anyone trick you into saying this!</p>
+        <br>
+        <h3>🗡️ Eliminate Target</h3>
+        <p>Enter your target's code to eliminate them:</p>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <input type="text" id="assassinationCode" placeholder="Enter target's code" style="flex: 1;">
+          <button onclick="eliminateTarget()" style="width: auto;">Eliminate</button>
+        </div>
+      `;
+    }
   }
 }
 
@@ -558,6 +583,9 @@ async function startGame() {
   }
 }
 
+// Add a property to track if player elimination has been handled
+let playerEliminationHandled = false;
+
 /**
  * Eliminate target using the entered code
  */
@@ -628,6 +656,52 @@ async function eliminateTarget() {
   } catch (error) {
     console.error('Error eliminating target:', error);
     alert('Failed to eliminate target. Please try again.');
+  }
+}
+
+/**
+ * Check if player was eliminated and show death screen if needed
+ * @param {any} gameData 
+ */
+function checkPlayerElimination(gameData) {
+  const currentPlayer = gameData.players.find(/** @param {any} p */ (p) => p.id === currentGame.playerId);
+  const isPlayerEliminated = currentPlayer && !currentPlayer.alive;
+  
+  // If player is eliminated and we haven't handled it yet, show death screen
+  if (isPlayerEliminated && !playerEliminationHandled) {
+    playerEliminationHandled = true;
+    
+    // Find the most likely killer (one of the alive players)
+    // In a real implementation, the server would track this information
+    const possibleKiller = gameData.players.find(/** @param {any} p */ (p) => p.alive && p.id !== currentGame.playerId);
+    
+    showDeathScreen(possibleKiller);
+  }
+}
+
+/**
+ * Show the death screen with information about the player's death
+ * @param {any} killer 
+ */
+function showDeathScreen(killer) {
+  const deathScreen = document.getElementById('deathScreen');
+  if (!deathScreen) return;
+  
+  // Hide other screens
+  document.querySelectorAll('.screen').forEach((screen) => {
+    screen.classList.remove('active');
+  });
+  
+  deathScreen.classList.add('active');
+  
+  // Show killer information if available
+  const killerInfo = deathScreen.querySelector('.killer-info');
+  if (killerInfo && killer) {
+    killerInfo.innerHTML = `
+      <h3>You were eliminated!</h3>
+      <p>Your killer was: <strong>${killer.name}</strong></p>
+      <p>👑 Host: ${killer.isHost ? 'Yes' : 'No'}</p>
+    `;
   }
 }
 
