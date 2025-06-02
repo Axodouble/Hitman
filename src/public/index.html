@@ -271,8 +271,6 @@
 
 <body>
     <script src="main.js"></script>
-    <script src="death-screen.js"></script>
-    <script src="spectator.js"></script>
 
     <div class="container">
         <h1>🎯 Hitman Game</h1>
@@ -293,7 +291,7 @@
             <div class="form-group">
                 <label for="creatorName">Your Name:</label>
                 <input type="text" id="creatorName" placeholder="Enter your name">
-            </div>            <button onclick="createGame()">Create Game</button>
+            </div> <button onclick="createGame()">Create Game</button>
             <button onclick="showScreen('mainMenu')">Back</button>
         </div>
 
@@ -307,7 +305,7 @@
             <div class="form-group">
                 <label for="playerName">Your Name:</label>
                 <input type="text" id="playerName" placeholder="Enter your name">
-            </div>            <button onclick="joinGame()">Join Game</button>
+            </div> <button onclick="joinGame()">Join Game</button>
             <button onclick="showScreen('mainMenu')">Back</button>
         </div> <!-- Game Lobby -->
         <div id="gameLobby" class="screen">
@@ -326,15 +324,17 @@
             <div class="player-list">
                 <h3>Players:</h3>
                 <div id="playerList"></div>
-            </div>            <button id="startGameBtn" style="display: none;" onclick="startGame()">Start Game</button>
+            </div> <button id="startGameBtn" style="display: none;" onclick="startGame()">Start Game</button>
             <button onclick="leaveGame()">Leave Game</button>
         </div>
 
         <!-- Game Playing -->
         <div id="gamePlaying" class="screen">
-            <h2>Game in Progress</h2>            <div id="targetInfo" class="target-info">
+            <h2>Game in Progress</h2>
+            <div id="targetInfo" class="target-info">
                 <!-- Target info will be populated by JS -->
-            </div><div class="code-input">
+            </div>
+            <div class="code-input">
                 <label for="assassinationCode">Enter code to assassinate:</label>
                 <input type="text" id="assassinationCode" placeholder="Enter target's code">
                 <button onclick="eliminateTarget()">Assassinate</button>
@@ -364,7 +364,6 @@
                     <!-- Killer info will be populated by JS -->
                 </div>
             </div>
-            <button onclick="returnToGameAsSpectator()">Return to Game as Spectator</button>
             <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
         </div>
     </div>
