@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Hitman Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            min-width: 400px;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1rem;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .player-list {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .player {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .player:last-child {
+            border-bottom: none;
+        }
+
+        .player.me {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            padding: 0.5rem;
+        }
+
+        .player.dead {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .target-info {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid rgba(255, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .code-input {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .share-link {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            word-break: break-all;
+        }
+
+        .game-id {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            user-select: all;
+        }
+
+        .game-id:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.02);
+        }
+
+        .clickable-link {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            word-break: break-all;
+            user-select: all;
+        }
+
+        .clickable-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.02);
+        }
+
+        .copy-hint {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+        }
+
+        .qr-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .qr-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem auto;
+            display: inline-block;
+            max-width: 200px;
+        }
+
+        .qr-code {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .winner {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 1rem 0;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .death-notification {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid rgba(255, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 1rem 0;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .killer-info {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .spectator-badge {
+            background: rgba(150, 150, 150, 0.3);
+            border-radius: 8px;
+            padding: 0.3rem 0.8rem;
+            margin-left: 0.5rem;
+            font-size: 0.7rem;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="main.js"></script>
+
+    <div class="container">
+        <h1>🎯 Hitman Game</h1>
+
+        <!-- Main Menu -->
+        <div id="mainMenu" class="screen active">
+            <button onclick="showScreen('createGame')">Create New Game</button>
+            <button onclick="showScreen('joinGame')">Join Game</button>
+        </div>
+
+        <!-- Create Game -->
+        <div id="createGame" class="screen">
+            <h2>Create New Game</h2>
+            <div class="form-group">
+                <label for="creatorName">Your Name:</label>
+                <input type="text" id="creatorName" placeholder="Enter your name">
+            </div> <button onclick="createGame()">Create Game</button>
+            <button onclick="showScreen('mainMenu')">Back</button>
+        </div>
+
+        <!-- Join Game -->
+        <div id="joinGame" class="screen">
+            <h2>Join Game</h2>
+            <div class="form-group">
+                <label for="gameId">Game ID:</label>
+                <input type="text" id="gameId" placeholder="Enter game ID">
+            </div>
+            <div class="form-group">
+                <label for="playerName">Your Name:</label>
+                <input type="text" id="playerName" placeholder="Enter your name">
+            </div> <button onclick="joinGame()">Join Game</button>
+            <button onclick="showScreen('mainMenu')">Back</button>
+        </div> <!-- Game Lobby -->
+        <div id="gameLobby" class="screen">
+            <h2 id="lobbyGameName">Game Lobby</h2>
+            <div class="qr-section">
+                <strong>📱 Scan to Join:</strong><br>
+                <div class="qr-container">
+                    <img id="qrCode" class="qr-code" alt="QR Code" />
+                </div>
+            </div>
+            <div class="share-link">
+                <strong>Share this link:</strong><br>
+                <span id="shareLink" class="clickable-link"></span>
+                <div class="copy-hint">👆 Click to copy</div>
+            </div>
+            <div class="player-list">
+                <h3>Players:</h3>
+                <div id="playerList"></div>
+            </div> <button id="startGameBtn" style="display: none;" onclick="startGame()">Start Game</button>
+            <button onclick="leaveGame()">Leave Game</button>
+        </div>
+
+        <!-- Game Playing -->
+        <div id="gamePlaying" class="screen">
+            <h2>Game in Progress</h2>
+            <div id="targetInfo" class="target-info">
+                <!-- Target info will be populated by JS -->
+            </div>
+            <div class="code-input">
+                <label for="assassinationCode">Enter code to assassinate:</label>
+                <input type="text" id="assassinationCode" placeholder="Enter target's code">
+                <button onclick="eliminateTarget()">Assassinate</button>
+            </div>
+            <div class="player-list">
+                <h3>Players:</h3>
+                <div id="gamePlayerList"></div>
+            </div>
+        </div>
+
+        <!-- Game Finished -->
+        <div id="gameFinished" class="screen">
+            <div class="winner">
+                <h2>🏆 Game Over!</h2>
+                <p id="winnerText"></p>
+            </div>
+            <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
+        </div>
+
+        <!-- Death Screen -->
+        <div id="deathScreen" class="screen">
+            <div class="death-notification">
+                <h2>💀 You've Been Eliminated!</h2>
+                <p>Unfortunately, someone has discovered your secret code and eliminated you from the game.</p>
+                <p>You can no longer participate in this round, but you can still watch how the game unfolds.</p>
+                <div id="killerInfo" class="killer-info">
+                    <!-- Killer info will be populated by JS -->
+                </div>
+            </div>
+            <button onclick="showScreen('mainMenu')">Back to Main Menu</button>
+        </div>
+    </div>
+</body>
+
+</html>
