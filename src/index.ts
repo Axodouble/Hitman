@@ -13,7 +13,6 @@ interface Player {
 
 interface Game {
   id: string; // Unique identifier for the game
-  name: string; // Name of the game
   players: Map<string, Player>; // Map of players in the game, keyed by player ID
   host: Player; // The player who created the game, also a participant
   started: boolean; // Whether the game has started
@@ -123,10 +122,9 @@ const server = serve({
     if (url.pathname === "/api/create") {
       if (req.method === "POST") {
         const body = (await req.json()) as {
-          gameName: string;
           playerName: string;
         };
-        const { gameName, playerName } = body;
+        const { playerName } = body;
 
         const gameId = generateId();
         const playerId = generateId();
@@ -141,7 +139,6 @@ const server = serve({
 
         const game: Game = {
           id: gameId,
-          name: gameName,
           players: new Map(),
           host: player,
           started: false,
@@ -241,7 +238,6 @@ const server = serve({
           success: true,
           game: {
             id: game.id,
-            name: game.name,
             started: game.started,
             finished: game.finished,
             winner: game.winner,

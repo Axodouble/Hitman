@@ -34,18 +34,15 @@ let currentGame = {
  * Create a new game
  */
 async function createGame() {
-  const gameNameInput = /** @type {HTMLInputElement} */ (document.getElementById('gameName'));
   const creatorNameInput = /** @type {HTMLInputElement} */ (document.getElementById('creatorName'));
   
-  if (!gameNameInput || !creatorNameInput) {
+  if (!creatorNameInput) {
     alert('Required form elements not found');
     return;
   }
-  
-  const gameName = gameNameInput.value.trim();
   const creatorName = creatorNameInput.value.trim();
   
-  if (!gameName || !creatorName) {
+  if (!creatorName) {
     alert('Please fill in all fields');
     return;
   }
@@ -57,7 +54,6 @@ async function createGame() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        gameName: gameName,
         playerName: creatorName
       })
     });
@@ -70,8 +66,7 @@ async function createGame() {
       currentGame.playerId = result.playerId;
       currentGame.playerName = creatorName;
       currentGame.isHost = true;
-        // Clear form inputs
-      gameNameInput.value = '';
+      // Clear form inputs
       creatorNameInput.value = '';
       
       // Update URL with game state
@@ -113,27 +108,12 @@ function showGameLobby() {
   const shareLink = document.querySelector('.share-link');
   if (shareLink) {
     const simpleJoinUrl = `${window.location.origin}/?join=${currentGame.id}`;
-    const currentUrl = window.location.href;
     
     let gameIdHtml = `
-      <strong>Game ID:</strong><br>
-      <div class="game-id" onclick="copyToClipboard('${currentGame.id}', event)">${currentGame.id}</div>
-      <div class="copy-hint">👆 Click to copy</div>
-      <br><br>
       <strong>Join Link (for new players):</strong><br>
       <div class="clickable-link" onclick="copyToClipboard('${simpleJoinUrl}', event)">${simpleJoinUrl}</div>
       <div class="copy-hint">👆 Click to copy</div>
     `;
-    
-    // If we have full game state in URL, also show that
-    if (currentUrl.includes('gameId=') && currentUrl.includes('playerId=')) {
-      gameIdHtml += `
-        <br><br>
-        <strong>Your Personal Game Link:</strong><br>
-        <div class="clickable-link" onclick="copyToClipboard('${currentUrl}', event)">${currentUrl}</div>
-        <div class="copy-hint">👆 Bookmark this to rejoin directly</div>
-      `;
-    }
     
     shareLink.innerHTML = gameIdHtml;
   }
@@ -720,7 +700,6 @@ function showDeathScreen(killer) {
     killerInfo.innerHTML = `
       <h3>You were eliminated!</h3>
       <p>Your killer was: <strong>${killer.name}</strong></p>
-      <p>👑 Host: ${killer.isHost ? 'Yes' : 'No'}</p>
     `;
   }
 }
@@ -731,19 +710,16 @@ document.addEventListener('DOMContentLoaded', function() {
   handleUrlParameters();
   
   // Add event listeners for form submission on Enter key
-  const gameNameInput = document.getElementById('gameName');
   const creatorNameInput = document.getElementById('creatorName');
   const gameIdInput = document.getElementById('gameId');
   const playerNameInput = document.getElementById('playerName');
   
   // Create game form Enter key handlers
-  if (gameNameInput && creatorNameInput) {
-    [gameNameInput, creatorNameInput].forEach(input => {
-      input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
+  if (creatorNameInput) {
+      creatorNameInput.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
           createGame();
         }
-      });
     });
   }
   
